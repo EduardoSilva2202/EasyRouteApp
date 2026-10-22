@@ -18,7 +18,8 @@ struct ContentView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 Map(position: $cameraPosition) {
-                    ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                    ForEach(stops.indices, id: \.self) { index in
+                        let stop = stops[index]
                         if let coordinate = stop.coordinate {
                             Marker("Stop \(index + 1)", coordinate: coordinate)
                                 .tint(stop.isCompleted ? .green : .red)
@@ -154,7 +155,7 @@ struct ContentView: View {
             }
 
             if !stops.isEmpty {
-                Text("Address lookup is precise to the provider's available property coordinates. Route optimisation is not connected yet.")
+                Text("Address lookup uses the provider's available property coordinates. Route optimisation is not connected yet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
