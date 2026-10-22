@@ -14,5 +14,6 @@ xcuserdata/
 # Local configuration and signing material
 .env
 .env.*
+!.env.example
 *.mobileprovision
 *.p12
