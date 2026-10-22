@@ -1,0 +1,18 @@
+# Xcode
+.DS_Store
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Local configuration and signing material
+.env
+.env.*
+*.mobileprovision
+*.p12
