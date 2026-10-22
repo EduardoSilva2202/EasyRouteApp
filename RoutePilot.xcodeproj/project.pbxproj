@@ -9,12 +9,12 @@
 		B00000000000000000000003 = {isa = PBXBuildFile; fileRef = C00000000000000000000003; };
 		B00000000000000000000004 = {isa = PBXBuildFile; fileRef = C00000000000000000000005; };
 
-		C00000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePilotApp.swift; sourceTree = "group"; };
-		C00000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "group"; };
-		C00000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteStop.swift; sourceTree = "group"; };
+		C00000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePilot/RoutePilotApp.swift; sourceTree = SOURCE_ROOT; };
+		C00000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePilot/ContentView.swift; sourceTree = SOURCE_ROOT; };
+		C00000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePilot/Models/RouteStop.swift; sourceTree = SOURCE_ROOT; };
 		C00000000000000000000004 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoutePilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		C00000000000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressLookupService.swift; sourceTree = "group"; };
-		C00000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "group"; };
+		C00000000000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePilot/Services/AddressLookupService.swift; sourceTree = SOURCE_ROOT; };
+		C00000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = RoutePilot/Info.plist; sourceTree = SOURCE_ROOT; };
 
 		A00000000000000000000001 = {
 			isa = PBXProject;
@@ -38,8 +38,8 @@
 		A00000000000000000000003 = {
 			isa = PBXGroup;
 			children = (C00000000000000000000001, C00000000000000000000002, A00000000000000000000005, A00000000000000000000006, C00000000000000000000006, );
-			path = RoutePilot;
-			sourceTree = "group";
+			name = RoutePilot;
+			sourceTree = "<group>";
 		};
 		A00000000000000000000004 = {
 			isa = PBXGroup;
@@ -50,14 +50,14 @@
 		A00000000000000000000005 = {
 			isa = PBXGroup;
 			children = (C00000000000000000000003, );
-			path = Models;
-			sourceTree = "group";
+			name = Models;
+			sourceTree = "<group>";
 		};
 		A00000000000000000000006 = {
 			isa = PBXGroup;
 			children = (C00000000000000000000005, );
-			path = Services;
-			sourceTree = "group";
+			name = Services;
+			sourceTree = "<group>";
 		};
 
 		D00000000000000000000001 = {
