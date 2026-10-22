@@ -17,9 +17,16 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                Map(position: $cameraPosition)
-                    .mapStyle(.standard)
-                    .ignoresSafeArea()
+                Map(position: $cameraPosition) {
+                    ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                        if let coordinate = stop.coordinate {
+                            Marker("Stop \(index + 1)", coordinate: coordinate)
+                                .tint(stop.isCompleted ? .green : .red)
+                        }
+                    }
+                }
+                .mapStyle(.standard)
+                .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     header
@@ -30,10 +37,26 @@ struct ContentView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isShowingAddStop) {
-                AddStopSheet { address in
-                    stops.append(RouteStop(address: address))
+                AddStopSheet { candidate in
+                    let stop = RouteStop(
+                        address: candidate.formattedAddress,
+                        latitude: candidate.latitude,
+                        longitude: candidate.longitude,
+                        uprn: candidate.uprn,
+                        udprn: candidate.udprn,
+                        coordinateAccuracy: candidate.coordinateAccuracy
+                    )
+                    stops.append(stop)
+                    if let coordinate = stop.coordinate {
+                        cameraPosition = .region(
+                            MKCoordinateRegion(
+                                center: coordinate,
+                                span: MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
+                            )
+                        )
+                    }
                 }
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             }
         }
@@ -94,7 +117,7 @@ struct ContentView: View {
                 ContentUnavailableView(
                     "No stops yet",
                     systemImage: "mappin.and.ellipse",
-                    description: Text("Add an address to start building your route.")
+                    description: Text("Add a postcode and choose the exact address.")
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 145)
@@ -131,9 +154,10 @@ struct ContentView: View {
             }
 
             if !stops.isEmpty {
-                Text("Route optimisation is not connected yet.")
+                Text("Address lookup is precise to the provider's available property coordinates. Route optimisation is not connected yet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
         .padding(.horizontal, 18)
@@ -168,11 +192,19 @@ private struct StopRow: View {
                 .frame(width: 30, height: 30)
                 .background(stop.isCompleted ? Color.green : Color.red, in: Circle())
 
-            Text(stop.address)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(navy)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(stop.address)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(navy)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(stop.coordinateAccuracy == "rooftop" ? "Property-level pin" :
+                     stop.coordinateAccuracy == "postcode-centroid" ? "Approximate postcode pin" :
+                     "Address saved; map pin unavailable")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Button(action: onToggle) {
                 Image(systemName: stop.isCompleted ? "checkmark.circle.fill" : "circle")
@@ -190,49 +222,142 @@ private struct StopRow: View {
 
 private struct AddStopSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var address = ""
-    let onAdd: (String) -> Void
+    @State private var postcode = ""
+    @State private var candidates: [AddressCandidate] = []
+    @State private var selectedCandidate: AddressCandidate?
+    @State private var isSearching = false
+    @State private var errorMessage: String?
+    @State private var postcodeSuggestions: [String] = []
 
+    let onAdd: (AddressCandidate) -> Void
+    private let lookupService = AddressLookupService()
     private let navy = Color(red: 0.03, green: 0.17, blue: 0.25)
     private let teal = Color(red: 0.19, green: 0.64, blue: 0.58)
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Add an address")
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Find the exact address")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(navy)
 
-                TextField("Postcode or full address", text: $address, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled()
-                    .accessibilityLabel("Postcode or full address")
+                HStack(spacing: 10) {
+                    TextField("Enter UK postcode", text: $postcode)
+                        .textFieldStyle(.roundedBorder)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .accessibilityLabel("UK postcode")
 
-                Text("Address search and map pin placement will be added when the address service is selected.")
+                    Button {
+                        Task { await searchAddresses() }
+                    } label: {
+                        if isSearching {
+                            ProgressView().tint(.white)
+                                .frame(width: 52, height: 48)
+                        } else {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 52, height: 48)
+                        }
+                    }
+                    .background(teal, in: RoundedRectangle(cornerRadius: 12))
+                    .disabled(isSearching || postcode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityLabel("Search postcode")
+                }
+
+                Text("Choose the house, flat or business from the verified address list.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+
+                if !postcodeSuggestions.isEmpty {
+                    Text("Did you mean: \(postcodeSuggestions.joined(separator: ", "))?")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if !candidates.isEmpty {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(candidates) { candidate in
+                                Button {
+                                    selectedCandidate = candidate
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: selectedCandidate?.id == candidate.id ? "largecircle.fill.circle" : "circle")
+                                            .foregroundStyle(teal)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(candidate.formattedAddress)
+                                                .font(.system(size: 14, weight: .medium))
+                                                .foregroundStyle(navy)
+                                                .multilineTextAlignment(.leading)
+                                            Text(candidate.coordinateAccuracyLabel)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer(minLength: 0)
+                                    }
+                                    .padding(10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        selectedCandidate?.id == candidate.id ? teal.opacity(0.12) : Color.gray.opacity(0.07),
+                                        in: RoundedRectangle(cornerRadius: 12)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 220)
+                }
+
                 Button {
-                    let cleanedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !cleanedAddress.isEmpty else { return }
-                    onAdd(cleanedAddress)
+                    guard let selectedCandidate else { return }
+                    onAdd(selectedCandidate)
                     dismiss()
                 } label: {
-                    Text("Add stop")
+                    Text("Add selected address")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(RoutePilotPrimaryButtonStyle(color: teal))
-                .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(selectedCandidate == nil)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
-            .padding(22)
+            .padding(20)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
                 }
             }
+        }
+    }
+
+    @MainActor
+    private func searchAddresses() async {
+        isSearching = true
+        errorMessage = nil
+        postcodeSuggestions = []
+        selectedCandidate = nil
+        candidates = []
+        defer { isSearching = false }
+
+        do {
+            candidates = try await lookupService.search(postcode: postcode)
+            if candidates.isEmpty {
+                errorMessage = "No delivery addresses were returned for this postcode."
+            }
+        } catch let error as AddressLookupError {
+            errorMessage = error.localizedDescription
+            postcodeSuggestions = error.postcodeSuggestions
+        } catch {
+            errorMessage = "Address lookup failed. Check the connection and try again."
         }
     }
 }
