@@ -101,7 +101,8 @@ struct ContentView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                        ForEach(stops.indices, id: \.self) { index in
+                            let stop = stops[index]
                             StopRow(stop: stop, number: index + 1, navy: navy) {
                                 toggle(stop)
                             }
@@ -121,7 +122,7 @@ struct ContentView: View {
                 .buttonStyle(RoutePilotPrimaryButtonStyle(color: teal))
 
                 Button {} label: {
-                    Label("Optimise", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                    Label("Optimise", systemImage: "arrow.triangle.2.circlepath")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(RoutePilotSecondaryButtonStyle())
